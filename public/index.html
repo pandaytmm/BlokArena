@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#070b12">
+  <title>BLOKARENA — Tarayıcıda PvP</title>
+  <meta name="description" content="Tarayıcıdan oynanan çok oyunculu voxel sunucusu: Silah PvP, BoxPvP ve SMP modları. Botlara ve arkadaşlarına karşı savaş.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%230a0f18'/><path d='M50 18 78 34v32L50 82 22 66V34z' fill='%23ff8a3d'/><path d='M50 18v32m0 0L22 34m28 16 28-16' stroke='%23101822' stroke-width='5'/></svg>">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <div id="vignette"></div>
+  <div id="damageFlash"></div>
+
+  <div id="menu" class="screen">
+    <div class="menu-bg" aria-hidden="true">
+      <div class="bg-glow"></div>
+      <div class="bg-grid"></div>
+      <span class="bg-cube c1"></span>
+      <span class="bg-cube c2"></span>
+      <span class="bg-cube c3"></span>
+      <span class="bg-cube c4"></span>
+      <span class="bg-cube c5"></span>
+    </div>
+    <div class="menu-shell">
+      <header class="menu-head">
+        <div class="logo">
+          <span class="logo-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <span class="logo-text">BLOK<span>ARENA</span></span>
+        </div>
+        <p class="tagline">TARAYICIDA ÇOK OYUNCULU VOXEL SAVAŞI</p>
+        <div class="live-row">
+          <span class="live-dot"></span>
+          <span>3 MOD</span><span class="sep">/</span>
+          <span>8 BOT</span><span class="sep">/</span>
+          <span>ANLIK PVP</span>
+        </div>
+      </header>
+
+      <div class="mode-grid" id="modeGrid">
+        <p class="mode-loading">MODLAR YÜKLENİYOR…</p>
+      </div>
+
+      <div class="kit-row hidden" id="kitRow">
+        <span class="kit-label">BOX KİTİ</span>
+        <div class="kit-chips" id="kitChips"></div>
+        <span class="kit-note">Kitini seç, spawn’da elinde olur.</span>
+      </div>
+
+      <div class="join-row">
+        <label class="name-field">
+          <span>OYUNCU ADI</span>
+          <input id="nameInput" maxlength="16" placeholder="OYUNCU" autocomplete="off" spellcheck="false">
+        </label>
+        <button class="btn-primary" id="playBtn">
+          <span>SUNUCUYA GİR</span>
+          <small>ANLIK BAĞLANTI</small>
+        </button>
+      </div>
+
+      <div class="menu-foot">
+        <div class="controls-grid">
+          <div><b>W A S D</b><span>HAREKET</span></div>
+          <div><b>FARE</b><span>NİŞAN</span></div>
+          <div><b>SOL TIK</b><span>ATEŞ / KIR</span></div>
+          <div><b>SAĞ TIK</b><span>NİŞAN / BLOK</span></div>
+          <div><b>SPACE</b><span>ZIPLA</span></div>
+          <div><b>R</b><span>ŞARJÖR</span></div>
+          <div><b>1-3</b><span>SİLAH / KİT</span></div>
+          <div><b>T / TAB</b><span>SOHBET / SKOR</span></div>
+        </div>
+        <div class="menu-note">
+          <p><b>SUNUCU</b> Bu adresi arkadaşlarınla paylaş — aynı odaya düşersiniz.</p>
+          <p><b>NOT</b> Java Minecraft istemcisi gerekmez. Klavye + fare ile tarayıcıdan oynanır.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="hud" class="hidden">
+    <div class="hud-top">
+      <div class="brand-mini">BLOK<span>ARENA</span></div>
+      <div class="mode-badge">
+        <span class="mode-dot"></span>
+        <div>
+          <b id="hudMode">SİLAH PVP</b>
+          <small id="hudRoom">ODA —</small>
+        </div>
+      </div>
+      <div class="score-strip">
+        <div><span>KILL</span><b id="statKills">0</b></div>
+        <div><span>ÖLÜM</span><b id="statDeaths">0</b></div>
+        <div><span>PING</span><b id="statPing">—</b></div>
+      </div>
+    </div>
+
+    <div class="killfeed" id="killfeed"></div>
+    <div class="chatlog" id="chatlog"></div>
+
+    <div class="crosshair" id="crosshair"><i></i><i></i><i></i><i></i><span></span></div>
+    <div class="hitmarker" id="hitmarker"><i></i><i></i><i></i><i></i></div>
+    <div class="hit-number" id="hitNumber"></div>
+
+    <div class="scope hidden" id="scope">
+      <div class="scope-ring"></div>
+      <div class="scope-h"></div>
+      <div class="scope-v"></div>
+      <div class="scope-dot"></div>
+    </div>
+
+    <div class="vitals">
+      <div class="hp-head"><span>SAĞLIK</span><b id="hpText">100</b></div>
+      <div class="hp-bar"><div class="hp-fill" id="hpFill"></div><span class="hp-grid"></span></div>
+      <div class="mode-hint" id="modeHint">ARENA · HIZLI RESPAWN</div>
+    </div>
+
+    <div class="hotbar" id="hotbar"></div>
+
+    <div class="ammo-panel" id="ammoPanel">
+      <div class="ammo-top"><span id="weaponName">TÜFEK</span><small id="reloadText"></small></div>
+      <div class="ammo-num"><b id="ammoCount">30</b><span id="ammoUnit">MERMİ</span></div>
+    </div>
+
+    <div class="hint-line" id="hintLine">SOL TIK ateş · R şarjör · 1/2/3 silah</div>
+
+    <div class="chat-hint">SOHBET <b>T</b><span>·</span> SKOR <b>TAB</b><span>·</span> MENÜ <b>ESC</b></div>
+
+    <div class="scoreboard hidden" id="scoreboard">
+      <div class="scoreboard-head">
+        <div>
+          <span class="eyebrow">CANLI SKOR</span>
+          <h3 id="scoreModeLabel">SİLAH PVP</h3>
+        </div>
+        <span class="score-key">TAB</span>
+      </div>
+      <div class="scoreboard-labels"><span>#</span><span>OYUNCU</span><span>KILL</span><span>ÖLÜM</span></div>
+      <div class="scoreboard-list" id="scoreList"></div>
+    </div>
+
+    <div class="chat-input-wrap hidden" id="chatInputWrap">
+      <span>SOHBET</span>
+      <input id="chatInput" maxlength="120" placeholder="Mesaj yaz, Enter ile gönder…" autocomplete="off">
+    </div>
+
+    <div class="toasts" id="toasts"></div>
+  </div>
+
+  <div id="death" class="screen overlay hidden">
+    <div class="death-card">
+      <p class="eyebrow">ELENDİN</p>
+      <h2 id="deathKiller">TEMİZLENDİN</h2>
+      <p class="death-weapon" id="deathWeapon">—</p>
+      <div class="respawn-line"><b id="respawnCount">3</b><span>saniye içinde yeniden doğuyorsun</span></div>
+      <div class="death-bar"><span id="deathBarFill"></span></div>
+      <p class="death-note">Ölüm cezası yok. Nefes al, tekrar dal.</p>
+    </div>
+  </div>
+
+  <div id="pause" class="screen overlay hidden">
+    <div class="pause-card">
+      <p class="eyebrow">DURAKLATILDI</p>
+      <h2>SAVAŞ DEVAM EDİYOR</h2>
+      <p class="muted-line">Botlar durmaz. Fareyi tekrar kilitle ve devam et.</p>
+      <button class="btn-primary" id="resumeBtn"><span>DEVAM ET</span><small>FAREYİ KİLİTLE</small></button>
+      <div class="settings-row">
+        <label for="sensitivity">FARE HASSASİYETİ <b id="sensValue">11</b></label>
+        <input type="range" id="sensitivity" min="4" max="30" step="1" value="11">
+      </div>
+      <div class="pause-links">
+        <button class="btn-ghost" id="leaveBtn">MOD MENÜSÜ</button>
+      </div>
+      <p class="small-controls">WASD hareket · SPACE zıpla · SHIFT koş · SOL TIK ateş · SAĞ TIK nişan/blok · R şarjör · 1-3 slot · T sohbet · TAB skor</p>
+    </div>
+  </div>
+
+  <div id="loading" class="screen overlay hidden">
+    <div class="loader"><span></span><span></span><span></span></div>
+    <h2 id="loadingTitle">DÜNYA OLUŞTURULUYOR</h2>
+    <p class="loading-text" id="loadingText">Arena blokları diziliyor…</p>
+    <p class="loading-tip" id="loadingTip">İPUCU: Sağ tık ile blok koyabilirsin.</p>
+  </div>
+
+  <div id="disconnect" class="screen overlay hidden">
+    <div class="pause-card">
+      <p class="eyebrow">BAĞLANTI KOPTU</p>
+      <h2>SUNUCUYA ULAŞILAMIYOR</h2>
+      <p class="muted-line">Sunucu kapanmış veya bağlantın kesilmiş olabilir.</p>
+      <button class="btn-primary" id="reconnectBtn"><span>YENİDEN BAĞLAN</span><small>SAYFAYI YENİLE</small></button>
+      <div class="pause-links">
+        <button class="btn-ghost" id="backMenuBtn">MOD MENÜSÜ</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="clickHint" class="click-hint hidden">
+    <b>OYNAMAK İÇİN TIKLA</b>
+    <span>Fare kilitlenecek · ESC ile menü</span>
+  </div>
+
+  <div id="fatal" class="screen overlay hidden">
+    <div class="pause-card">
+      <p class="eyebrow">HATA</p>
+      <h2>TARAYICI DESTEĞİ YETERSİZ</h2>
+      <p class="muted-line" id="fatalText">WebGL başlatılamadı. Güncel bir Chrome, Edge veya Firefox dene.</p>
+      <button class="btn-primary" id="fatalBackBtn"><span>MOD MENÜSÜ</span><small>GERİ DÖN</small></button>
+    </div>
+  </div>
+
+  <noscript>
+    <div style="position:fixed;inset:0;display:grid;place-items:center;background:#070b12;color:#fff;font-family:sans-serif;z-index:100;">
+      Bu oyun için JavaScript gerekli.
+    </div>
+  </noscript>
+
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>

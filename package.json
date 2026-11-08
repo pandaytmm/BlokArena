@@ -1,0 +1,13 @@
+{
+  "name": "blokarena",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Tarayıcıda oynanan çok oyunculu voxel PvP sunucusu",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

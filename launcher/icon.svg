@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#101714"/>
+  <polygon points="256,88 424,172 256,256 88,172" fill="#6fbf4b"/>
+  <polygon points="88,172 256,256 256,424 88,340" fill="#8a5a34"/>
+  <polygon points="424,172 256,256 256,424 424,340" fill="#6b4426"/>
+  <polygon points="88,172 256,256 256,290 88,206" fill="#5aa93a"/>
+  <polygon points="424,172 256,256 256,290 424,206" fill="#4f9a33"/>
+  <polygon points="256,88 424,172 320,218 152,134" fill="#7fcf5a"/>
+  <text x="256" y="482" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="46" font-weight="700" fill="#e8f5e9">BLOKARENA</text>
+</svg>

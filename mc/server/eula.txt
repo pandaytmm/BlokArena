@@ -1,0 +1,3 @@
+# Minecraft sunucusunu calistirarak Mojang EULA'sini kabul etmis olursunuz.
+# https://aka.ms/MinecraftEULA
+eula=true

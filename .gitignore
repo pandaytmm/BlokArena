@@ -1,0 +1,18 @@
+node_modules/
+
+# yerel sırlar
+launcher/data/admin.key
+launcher/data/secret.txt
+launcher/data/users.json
+
+# çalışma zamanı / üretilen dosyalar
+launcher/edge-profile/
+launcher/backend-loop.log
+server.log
+*.log
+
+mc/runtime/
+mc/client/
+mc/server/cache/
+mc/server/logs/
+session.lock

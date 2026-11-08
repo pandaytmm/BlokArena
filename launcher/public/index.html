@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>BlokArena MC</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true"></div>
+
+  <section class="auth-shell" id="authView">
+    <div class="auth-brand">
+      <div class="brand-lockup">
+        <div class="logo-block" aria-hidden="true"><span></span></div>
+        <div>
+          <p class="eyebrow">MINECRAFT LAUNCHER</p>
+          <h1>BLOKARENA <span>MC</span></h1>
+        </div>
+      </div>
+      <p class="brand-lead">
+        Kendi sunucun, tek tıkla kapında. Kayıt ol, <strong>OYNA</strong>'ya bas;
+        Minecraft açılır ve doğrudan sunucuya bağlanır.
+      </p>
+      <ul class="brand-facts">
+        <li><span class="dot"></span> Paper 1.16.5 sunucu</li>
+        <li><span class="dot"></span> Otomatik sunucuya katılım</li>
+        <li><span class="dot"></span> Bu bilgisayarda 7/24 çalışır</li>
+      </ul>
+      <div class="brand-strip">
+        <div><b>20</b><small>oyuncu kapasitesi</small></div>
+        <div><b>1.16.5</b><small>istemci sürümü</small></div>
+        <div><b>SMP</b><small>+ PvP dünyası</small></div>
+      </div>
+    </div>
+
+    <div class="auth-card">
+      <div class="auth-card-head">
+        <p class="eyebrow" id="authEyebrow">HESABINA GİRİŞ YAP</p>
+        <h2 id="authTitle">Tekrar hoş geldin</h2>
+        <p id="authSub">Kullanıcı adı ve şifrenle oturum aç.</p>
+      </div>
+
+      <div class="tabs" role="tablist">
+        <button class="tab" id="tabLogin" type="button" role="tab">Giriş Yap</button>
+        <button class="tab" id="tabRegister" type="button" role="tab">Kayıt Ol</button>
+      </div>
+
+      <form id="loginForm" class="auth-form" autocomplete="on">
+        <label>
+          <span>Kullanıcı Adı</span>
+          <input id="loginUser" name="username" type="text" maxlength="16" autocomplete="username" spellcheck="false" placeholder="Steve" required>
+        </label>
+        <label>
+          <span>Şifre</span>
+          <input id="loginPass" name="password" type="password" maxlength="100" autocomplete="current-password" placeholder="••••••••" required>
+        </label>
+        <p class="form-error" id="loginError" role="alert"></p>
+        <button class="btn-primary" id="loginBtn" type="submit">Giriş Yap</button>
+      </form>
+
+      <form id="registerForm" class="auth-form is-hidden" autocomplete="on">
+        <p class="callout">İlk girişte hesap oluştur. Bu kullanıcı adı aynı zamanda Minecraft'taki oyuncu adın olur.</p>
+        <label>
+          <span>Kullanıcı Adı</span>
+          <input id="regUser" name="username" type="text" maxlength="16" autocomplete="username" spellcheck="false" placeholder="Steve" required>
+          <small>3-16 karakter · harf, rakam, alt çizgi</small>
+        </label>
+        <label>
+          <span>Şifre</span>
+          <input id="regPass" name="password" type="password" maxlength="100" autocomplete="new-password" placeholder="En az 6 karakter" required>
+        </label>
+        <label>
+          <span>Şifre Tekrar</span>
+          <input id="regPass2" name="password2" type="password" maxlength="100" autocomplete="new-password" placeholder="Şifreyi tekrar yaz" required>
+        </label>
+        <p class="form-error" id="registerError" role="alert"></p>
+        <button class="btn-primary" id="registerBtn" type="submit">Kayıt Ol ve Gir</button>
+      </form>
+
+      <p class="auth-foot">Bu launcher yalnızca bu bilgisayarda çalışır. Şifren cihazında güvenli şekilde saklanır.</p>
+    </div>
+  </section>
+
+  <section class="app-shell is-hidden" id="mainView">
+    <header class="topbar">
+      <div class="brand-lockup small">
+        <div class="logo-block mini" aria-hidden="true"><span></span></div>
+        <div>
+          <p class="eyebrow">MINECRAFT LAUNCHER</p>
+          <h1>BLOKARENA <span>MC</span></h1>
+        </div>
+      </div>
+      <nav class="topnav">
+        <a href="#server" class="topnav-link">Sunucu</a>
+        <a href="#howto" class="topnav-link">Nasıl Oynanır</a>
+      </nav>
+      <div class="user-chip">
+        <span class="avatar" id="userAvatar">P</span>
+        <span class="user-name" id="userName">oyuncu</span>
+        <button class="icon-btn" id="logoutBtn" type="button" title="Çıkış Yap" aria-label="Çıkış Yap">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="dashboard">
+      <section class="hero-card" id="server">
+        <div class="hero-glow" aria-hidden="true"></div>
+        <div class="hero-top">
+          <span class="status-badge offline" id="serverBadge"><span class="pulse"></span><span id="serverBadgeText">SUNUCU KAPALI</span></span>
+          <span class="chip" id="versionChip">PAPER 1.16.5</span>
+        </div>
+        <h2 class="hero-title">BlokArena <span>SMP &amp; PvP</span></h2>
+        <p class="hero-sub">Minecraft senin bilgisayarında açılır ve doğrudan sunucuya bağlanır. Mod kurmana, sürüm seçmene gerek yok. Hub'da <b>BOX PVP</b> ve <b>GUNS PVP</b> butonlarıyla herkese açık arenaya ışınlanabilirsin.</p>
+
+        <div class="ip-row">
+          <div>
+            <p class="label">SUNUCU ADRESİ</p>
+            <p class="ip" id="serverAddress">127.0.0.1:25565</p>
+          </div>
+          <button class="btn-ghost" id="copyIp" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>
+            Kopyala
+          </button>
+        </div>
+
+        <div class="hero-actions">
+          <button class="play-btn" id="playBtn" type="button">
+            <span class="play-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg></span>
+            <span class="play-label" id="playLabel">OYNA</span>
+            <span class="play-spinner" aria-hidden="true"></span>
+          </button>
+          <div class="play-meta">
+            <p id="playHint">Sunucu kapalıysa otomatik başlatılır.</p>
+            <div class="progress-track is-hidden" id="playProgressWrap"><div class="progress-fill" id="playProgress"></div></div>
+          </div>
+        </div>
+
+        <div class="hero-stats">
+          <div class="stat">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.4"/><path d="M15.8 14.2c2.6.4 4.2 2.4 4.2 5.8"/></svg>
+            <div><b id="statPlayers">0 / 20</b><small>oyuncu</small></div>
+          </div>
+          <div class="stat">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17h3l3-9 4 6 2-3h4"/></svg>
+            <div><b id="statPing">-- ms</b><small>gecikme</small></div>
+          </div>
+          <div class="stat">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h6v6H9z"/></svg>
+            <div><b id="statVersion">1.16.5</b><small>sürüm</small></div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="status-card">
+        <div class="card-head">
+          <h3>Sunucu Durumu</h3>
+          <button class="icon-btn" id="refreshBtn" type="button" title="Yenile" aria-label="Yenile">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></svg>
+          </button>
+        </div>
+        <dl class="status-list">
+          <div><dt>Durum</dt><dd id="rowStatus" class="value-off">Kapalı</dd></div>
+          <div><dt>Sürüm</dt><dd id="rowVersion">Paper 1.16.5</dd></div>
+          <div><dt>Oyuncular</dt><dd id="rowPlayers">0 / 20</dd></div>
+          <div><dt>Gecikme</dt><dd id="rowPing">--</dd></div>
+          <div><dt>Yerel ağ</dt><dd id="rowLan">-</dd></div>
+        </dl>
+        <div class="motd" id="serverMotd">Sunucu açıldığında burada sunucu mesajı görünür.</div>
+        <p class="status-note">Sunucu bu bilgisayar açıkken çalışır. Arkadaşların aynı ağdan yerel IP ile katılabilir.</p>
+      </aside>
+
+      <section class="console-card">
+        <div class="card-head">
+          <h3><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"/><path d="M7 9l3 3-3 3M12 15h5"/></svg> Sunucu Konsolu</h3>
+          <span class="live-dot"><span></span> canlı</span>
+        </div>
+        <div class="console-body" id="consoleBody">
+          <p class="console-line muted">Konsol kayıtları yükleniyor…</p>
+        </div>
+      </section>
+
+      <section class="howto-card" id="howto">
+        <div class="card-head">
+          <h3>Nasıl Oynanır?</h3>
+        </div>
+        <ol class="steps">
+          <li>
+            <span class="step-num">1</span>
+            <div><b>Hesap oluştur</b><p>Kullanıcı adı ve şifreyle kayıt ol; aynı bilgilerle tekrar giriş yap.</p></div>
+          </li>
+          <li>
+            <span class="step-num">2</span>
+            <div><b>OYNA'ya bas</b><p>Launcher sunucuyu başlatır, Minecraft'ı açar ve seni sunucuya bağlar.</p></div>
+          </li>
+          <li>
+            <span class="step-num">3</span>
+            <div><b>Arkadaşını davet et</b><p>Aynı ağdaki arkadaşın TLauncher'dan yerel IP:25565 adresine bağlanabilir.</p></div>
+          </li>
+        </ol>
+      </section>
+    </main>
+
+    <footer class="app-foot">
+      <span>BlokArena MC · Minecraft 1.16.5 · Paper</span>
+      <span>Sunucu bu bilgisayarda çalışır; Minecraft EULA geçerlidir.</span>
+    </footer>
+  </section>
+
+  <div class="toast" id="toast" role="status"></div>
+  <script src="/app.js"></script>
+</body>
+</html>
