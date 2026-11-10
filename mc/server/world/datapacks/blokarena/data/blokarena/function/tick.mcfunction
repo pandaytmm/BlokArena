@@ -1,5 +1,7 @@
 # --- lobby korumasi ---
 execute as @a[x=-17,y=139,z=-17,dx=34,dy=10,dz=34,gamemode=survival] run gamemode adventure @s
+execute as @a[tag=bw_red,x=-17,y=139,z=-17,dx=34,dy=10,dz=34] run function blokarena:bw_leave
+execute as @a[tag=bw_blue,x=-17,y=139,z=-17,dx=34,dy=10,dz=34] run function blokarena:bw_leave
 
 # --- giris menusu ---
 execute as @a[tag=!lobby_seen,x=-17,y=139,z=-17,dx=34,dy=10,dz=34] run function blokarena:menu_join
