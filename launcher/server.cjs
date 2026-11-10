@@ -14,8 +14,8 @@ const ROOT = path.resolve(__dirname, '..');
 const MC_DIR = path.join(ROOT, 'mc');
 const SERVER_DIR = path.join(MC_DIR, 'server');
 const CLIENT_DIR = path.join(MC_DIR, 'client');
-const RUNTIME_DIR = path.join(MC_DIR, 'runtime', 'jre8');
-const SERVER_JAR = path.join(SERVER_DIR, 'paper-1.16.5-794.jar');
+const RUNTIME_DIR = path.join(MC_DIR, 'runtime', 'jre21');
+const SERVER_JAR = path.join(SERVER_DIR, 'paper-1.21.1-133.jar');
 const SERVER_LOG = path.join(SERVER_DIR, 'console.log');
 const JAVA = path.join(RUNTIME_DIR, 'bin', 'java.exe');
 const JAVAW = path.join(RUNTIME_DIR, 'bin', 'javaw.exe');
@@ -28,7 +28,7 @@ const APP_PORT = Number(process.env.LAUNCHER_PORT) || 3010;
 const YGG_PORT = Number(process.env.YGGDRASIL_PORT) || 3011;
 const AUTHLIB_INJECTOR = path.join(__dirname, 'libs', 'authlib-injector.jar');
 const MC_PORT = 25565;
-const MC_VERSION = '1.16.5';
+const MC_VERSION = '1.21.1';
 const MC_HOME = path.join(os.homedir(), 'AppData', 'Roaming', '.minecraft');
 const VERSION_DIR = path.join(MC_HOME, 'versions', MC_VERSION);
 const VERSION_JSON = path.join(VERSION_DIR, MC_VERSION + '.json');
@@ -36,6 +36,12 @@ const VERSION_JAR = path.join(VERSION_DIR, MC_VERSION + '.jar');
 const LIB_DIR = path.join(MC_HOME, 'libraries');
 const ASSETS_DIR = path.join(MC_HOME, 'assets');
 const NATIVES_DIR = path.join(CLIENT_DIR, 'natives');
+const MODS_DIR = path.join(CLIENT_DIR, 'mods');
+const SHADERS_DIR = path.join(CLIENT_DIR, 'shaderpacks');
+const FABRIC_LOADER_VERSION = '0.20.1';
+const FABRIC_ID = 'fabric-loader-' + FABRIC_LOADER_VERSION + '-' + MC_VERSION;
+const FABRIC_JSON = path.join(MC_HOME, 'versions', FABRIC_ID, FABRIC_ID + '.json');
+const CLIENT_SETTINGS_FILE = path.join(DATA_DIR, 'client-settings.json');
 
 /* ---------------- helpers ---------------- */
 
@@ -320,7 +326,7 @@ async function startServer() {
   if (serverState.child || serverState.starting) return false;
   if (await isPortOpen(MC_PORT)) return false;
   if (!fs.existsSync(SERVER_JAR)) throw new Error('Sunucu dosyası bulunamadı (Paper jar).');
-  if (!fs.existsSync(JAVA)) throw new Error('Java 8 çalışma zamanı bulunamadı.');
+  if (!fs.existsSync(JAVA)) throw new Error('Java 21 çalışma zamanı bulunamadı.');
 
   serverState.starting = true;
   ensureDir(SERVER_DIR);
@@ -328,7 +334,7 @@ async function startServer() {
   const out = fs.createWriteStream(SERVER_LOG, { flags: 'a' });
   out.write('\n===== BlokArena MC baslatiliyor (' + new Date().toLocaleString('tr-TR') + ') =====\n');
 
-  const child = spawn(JAVA, ['-Xms1G', '-Xmx2G', '-jar', path.basename(SERVER_JAR), 'nogui'], {
+  const child = spawn(JAVA, ['-Xms1G', '-Xmx3G', '-jar', path.basename(SERVER_JAR), 'nogui'], {
     cwd: SERVER_DIR,
     windowsHide: true,
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -433,17 +439,40 @@ function sha1File(file) {
   return hash.digest('hex');
 }
 
+function downloadHttps(url, tmp, redirects = 0) {
+  return new Promise((resolve, reject) => {
+    if (redirects > 6) return reject(new Error('Çok fazla yönlendirme: ' + url));
+    const req = https.get(
+      url,
+      { family: 4, timeout: 60000, headers: { 'User-Agent': 'BlokArenaMC' } },
+      (res) => {
+        const status = res.statusCode || 0;
+        if (status >= 300 && status < 400 && res.headers.location) {
+          res.resume();
+          const next = new URL(res.headers.location, url).href;
+          downloadHttps(next, tmp, redirects + 1).then(resolve, reject);
+          return;
+        }
+        if (status !== 200) {
+          res.resume();
+          return reject(new Error('İndirme başarısız (' + status + '): ' + url));
+        }
+        const out = fs.createWriteStream(tmp);
+        res.pipe(out);
+        out.on('finish', () => out.close(() => resolve()));
+        out.on('error', reject);
+        res.on('error', reject);
+      }
+    );
+    req.on('timeout', () => req.destroy(new Error('İndirme zaman aşımına uğradı: ' + url)));
+    req.on('error', reject);
+  });
+}
+
 async function downloadFile(url, dest, expectedSha1) {
   ensureDir(path.dirname(dest));
-  const res = await fetch(url, { redirect: 'follow' });
-  if (!res.ok || !res.body) throw new Error('İndirme başarısız (' + res.status + '): ' + url);
   const tmp = dest + '.part';
-  const handle = await fsp.open(tmp, 'w');
-  try {
-    for await (const chunk of res.body) await handle.write(chunk);
-  } finally {
-    await handle.close();
-  }
+  await downloadHttps(url, tmp);
   if (expectedSha1) {
     const actual = sha1File(tmp);
     if (actual.toLowerCase() !== expectedSha1.toLowerCase()) {
@@ -451,6 +480,7 @@ async function downloadFile(url, dest, expectedSha1) {
       throw new Error('Dosya doğrulaması başarısız: ' + path.basename(dest));
     }
   }
+  if (fs.existsSync(dest)) await fsp.unlink(dest).catch(() => {});
   await fsp.rename(tmp, dest);
 }
 
@@ -480,6 +510,283 @@ const clientPrep = {
   ready: false,
   error: null,
 };
+
+/* ---------------- mods & shaders ---------------- */
+
+const SHADER_STACK = [
+  {
+    name: 'fabric-api-0.116.17+1.21.1.jar',
+    label: 'Fabric API 0.116.17',
+    url: 'https://cdn.modrinth.com/data/P7dR8mSH/versions/Mys3P7lK/fabric-api-0.116.17%2B1.21.1.jar',
+    sha1: '810b2b0195371a012906241d8b85a32a1d6de53c',
+  },
+  {
+    name: 'sodium-fabric-0.6.13+mc1.21.1.jar',
+    label: 'Sodium 0.6.13',
+    url: 'https://cdn.modrinth.com/data/AANobbMI/versions/u1OEbNKx/sodium-fabric-0.6.13%2Bmc1.21.1.jar',
+    sha1: '928a2598178c3a58b0638bab842f467d2e49251a',
+  },
+  {
+    name: 'iris-fabric-1.8.8+mc1.21.1.jar',
+    label: 'Iris 1.8.8',
+    url: 'https://cdn.modrinth.com/data/YL57xq9U/versions/zsoi0dso/iris-fabric-1.8.8%2Bmc1.21.1.jar',
+    sha1: '4e0df4011503b4b36ba69877ea7247c1a47fea00',
+  },
+  {
+    name: 'modmenu-11.0.5.jar',
+    label: 'Mod Menu 11.0.5',
+    url: 'https://cdn.modrinth.com/data/mOgUt4GM/versions/6lgOkclV/modmenu-11.0.5.jar',
+    sha1: '2321d890a25b5985eba576d7cd8fe9a9c136e33d',
+  },
+];
+
+function loadClientSettings() {
+  const settings = readJson(CLIENT_SETTINGS_FILE, {});
+  return { fabric: Boolean(settings && settings.fabric) };
+}
+
+function saveClientSettings(settings) {
+  writeJson(CLIENT_SETTINGS_FILE, settings);
+}
+
+function mavenPath(name) {
+  const parts = String(name || '').split(':');
+  if (parts.length < 3) return '';
+  const [group, artifact, version, classifier] = parts;
+  const file = artifact + '-' + version + (classifier ? '-' + classifier : '') + '.jar';
+  return group.replace(/\./g, '/') + '/' + artifact + '/' + version + '/' + file;
+}
+
+function fabricProfile() {
+  const profile = readJson(FABRIC_JSON, null);
+  return profile && profile.mainClass && Array.isArray(profile.libraries) ? profile : null;
+}
+
+function fabricInstalled() {
+  const profile = fabricProfile();
+  if (!profile) return false;
+  for (const lib of profile.libraries) {
+    const rel = mavenPath(lib.name);
+    if (rel && !fs.existsSync(path.join(LIB_DIR, rel))) return false;
+  }
+  for (const mod of SHADER_STACK) {
+    if (!fs.existsSync(path.join(MODS_DIR, mod.name))) return false;
+  }
+  return true;
+}
+
+let fabricJob = null;
+
+function installFabric() {
+  if (fabricJob) return fabricJob;
+  fabricJob = (async () => {
+    const res = await fetch(
+      'https://meta.fabricmc.net/v2/versions/loader/' + MC_VERSION + '/' + FABRIC_LOADER_VERSION + '/profile/json'
+    );
+    if (!res.ok) throw new Error('Fabric profili alınamadı (' + res.status + ').');
+    const profile = await res.json();
+    ensureDir(path.dirname(FABRIC_JSON));
+    writeJson(FABRIC_JSON, profile);
+
+    for (const lib of profile.libraries || []) {
+      const rel = mavenPath(lib.name);
+      if (!rel) continue;
+      const file = path.join(LIB_DIR, rel);
+      if (fs.existsSync(file)) continue;
+      const base = String(lib.url || 'https://maven.fabricmc.net/').replace(/\/?$/, '/');
+      await downloadFile(base + rel, file, lib.sha1);
+    }
+
+    ensureDir(MODS_DIR);
+    for (const mod of SHADER_STACK) {
+      const file = path.join(MODS_DIR, mod.name);
+      if (fs.existsSync(file)) continue;
+      await downloadFile(mod.url, file, mod.sha1);
+    }
+
+    const settings = loadClientSettings();
+    settings.fabric = true;
+    saveClientSettings(settings);
+    return true;
+  })().finally(() => {
+    fabricJob = null;
+  });
+  return fabricJob;
+}
+
+function listClientFiles(dir, ext) {
+  try {
+    return fs
+      .readdirSync(dir)
+      .filter((name) => name.toLowerCase().endsWith(ext) && fs.existsSync(path.join(dir, name)))
+      .map((name) => {
+        let size = 0;
+        try {
+          size = fs.statSync(path.join(dir, name)).size;
+        } catch {
+          size = 0;
+        }
+        return { name, size };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+  } catch {
+    return [];
+  }
+}
+
+function detectFileType(name, requested) {
+  if (requested === 'mod' || requested === 'shader') return requested;
+  if (/\.jar$/i.test(name)) return 'mod';
+  if (/\.zip$/i.test(name)) return 'shader';
+  throw new Error('Dosya türü anlaşılamadı; .jar (mod) veya .zip (shader) olmalı.');
+}
+
+function safeBaseName(name, type) {
+  const base = path.basename(String(name || '')).replace(/[^\w.\-+() ]+/g, '_').slice(0, 120);
+  if (!base || base.startsWith('.')) throw new Error('Geçersiz dosya adı.');
+  if (type === 'mod' && !/\.jar$/i.test(base)) throw new Error('Mod dosyası .jar olmalı.');
+  if (type === 'shader' && !/\.zip$/i.test(base)) throw new Error('Shader paketi .zip olmalı.');
+  return base;
+}
+
+function assetScore(name, type) {
+  let score = 0;
+  if (/1\.16\.5/.test(name)) score += 4;
+  if (/fabric/i.test(name)) score += 2;
+  if (type === 'mod' && /\.jar$/i.test(name)) score += 2;
+  if (type === 'shader' && /\.zip$/i.test(name)) score += 2;
+  if (/(sources|javadoc|-dev|installer|slim|api)/i.test(name)) score -= 6;
+  return score;
+}
+
+function isPrivateHost(host) {
+  if (!host || host === 'localhost' || host === '::1' || host.endsWith('.local')) return true;
+  const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (!match) return false;
+  const a = Number(match[1]);
+  const b = Number(match[2]);
+  return (
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    (a === 192 && b === 168) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 169 && b === 254)
+  );
+}
+
+function fetchGithubJson(url) {
+  return new Promise((resolve, reject) => {
+    const req = https.get(
+      url,
+      {
+        family: 4,
+        timeout: 20000,
+        headers: { 'User-Agent': 'BlokArenaMC', Accept: 'application/vnd.github+json' },
+      },
+      (res) => {
+        const chunks = [];
+        res.on('data', (chunk) => chunks.push(chunk));
+        res.on('end', () => {
+          if (res.statusCode === 403) return reject(new Error('GitHub istek sınırı aşıldı; biraz sonra tekrar dene.'));
+          if (res.statusCode !== 200) return reject(new Error('GitHub yanıtı: ' + res.statusCode));
+          try {
+            resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+          } catch {
+            reject(new Error('GitHub yanıtı okunamadı.'));
+          }
+        });
+      }
+    );
+    req.on('timeout', () => req.destroy(new Error('GitHub isteği zaman aşımına uğradı.')));
+    req.on('error', reject);
+  });
+}
+
+async function resolveSource(rawUrl, requested) {
+  let url;
+  try {
+    url = new URL(String(rawUrl || '').trim());
+  } catch {
+    throw new Error('Geçerli bir bağlantı gir.');
+  }
+  if (url.protocol !== 'https:') throw new Error('Güvenlik için https bağlantısı kullan.');
+  if (isPrivateHost(url.hostname.toLowerCase())) throw new Error('Yerel ağ adreslerinden indirme yapılamaz.');
+
+  const host = url.hostname.toLowerCase();
+  if (host === 'github.com' || host === 'www.github.com') {
+    const parts = url.pathname.split('/').filter(Boolean);
+    const owner = parts[0];
+    const repo = (parts[1] || '').replace(/\.git$/i, '');
+    if (!owner || !repo) throw new Error('GitHub bağlantısı eksik görünüyor.');
+    if (parts[2] === 'releases' && parts[3] === 'download') {
+      return { url: url.href, filename: decodeURIComponent(parts[parts.length - 1]) };
+    }
+    let api = 'https://api.github.com/repos/' + owner + '/' + repo + '/releases/latest';
+    if (parts[2] === 'releases' && parts[3] === 'tag' && parts[4]) {
+      api = 'https://api.github.com/repos/' + owner + '/' + repo + '/releases/tags/' + encodeURIComponent(parts[4]);
+    }
+    let release;
+    try {
+      release = await fetchGithubJson(api);
+    } catch (err) {
+      if (/404/.test(err.message)) throw new Error('GitHub deposu veya sürümü bulunamadı.');
+      throw new Error('GitHub sürüm bilgisi alınamadı: ' + err.message);
+    }
+    const assets = (release.assets || []).filter((asset) => /\.(jar|zip)$/i.test(asset.name));
+    const preferred = assets.filter((asset) =>
+      requested === 'mod' ? /\.jar$/i.test(asset.name) : requested === 'shader' ? /\.zip$/i.test(asset.name) : true
+    );
+    const pool = preferred.length ? preferred : assets;
+    if (!pool.length) throw new Error('Son sürümde indirilebilir .jar/.zip dosyası yok.');
+    let best = pool[0];
+    for (const asset of pool) {
+      if (assetScore(asset.name, requested) >= assetScore(best.name, requested)) best = asset;
+    }
+    return { url: best.browser_download_url, filename: best.name };
+  }
+
+  const filename = decodeURIComponent(url.pathname.split('/').pop() || '');
+  if (!/\.(jar|zip)$/i.test(filename)) throw new Error('Bağlantı .jar veya .zip dosyasına işaret etmeli.');
+  return { url: url.href, filename };
+}
+
+async function installClientFile(rawUrl, requested) {
+  const source = await resolveSource(rawUrl, requested);
+  const type = detectFileType(source.filename, requested);
+  const dir = type === 'mod' ? MODS_DIR : SHADERS_DIR;
+  ensureDir(dir);
+  const name = safeBaseName(source.filename, type);
+  const dest = path.join(dir, name);
+  await downloadFile(source.url, dest);
+  return { type, name, size: fs.statSync(dest).size };
+}
+
+function deleteClientFile(type, name) {
+  if (type !== 'mod' && type !== 'shader') throw new Error('Geçersiz tür.');
+  const raw = String(name || '');
+  const base = path.basename(raw);
+  if (!base || base !== raw) throw new Error('Geçersiz dosya adı.');
+  const file = path.join(type === 'mod' ? MODS_DIR : SHADERS_DIR, base);
+  if (!fs.existsSync(file)) throw new Error('Dosya bulunamadı.');
+  fs.unlinkSync(file);
+}
+
+function modsSnapshot() {
+  const settings = loadClientSettings();
+  const installed = fabricInstalled();
+  return {
+    fabric: {
+      installed,
+      enabled: installed && settings.fabric,
+      loader: FABRIC_LOADER_VERSION,
+      stack: installed ? ['Fabric Loader ' + FABRIC_LOADER_VERSION, ...SHADER_STACK.map((mod) => mod.label)] : [],
+      installing: Boolean(fabricJob),
+    },
+    mods: listClientFiles(MODS_DIR, '.jar'),
+    shaders: listClientFiles(SHADERS_DIR, '.zip'),
+  };
+}
 
 function buildClientManifest(version) {
   const items = [];
@@ -539,9 +846,11 @@ async function prepareClient() {
     clientPrep.progress = 0;
     ensureDir(CLIENT_DIR);
     ensureDir(NATIVES_DIR);
+    ensureDir(MODS_DIR);
+    ensureDir(SHADERS_DIR);
 
     const version = readJson(VERSION_JSON, null);
-    if (!version) throw new Error('Minecraft 1.16.5 sürüm dosyası bulunamadı.');
+    if (!version) throw new Error('Minecraft ' + MC_VERSION + ' sürüm dosyası bulunamadı.');
 
     const items = buildClientManifest(version);
     clientPrep.total = items.length;
@@ -659,18 +968,43 @@ function collectGameArgs(version, map) {
   return args.map((a) => substitute(a, map));
 }
 
+function clientVersion() {
+  const base = readJson(VERSION_JSON, null);
+  if (!base) throw new Error('Sürüm dosyası okunamadı.');
+  const settings = loadClientSettings();
+  if (!settings.fabric) return base;
+  const profile = fabricProfile();
+  if (!profile || !fabricInstalled()) return base;
+  const baseArgs = base.arguments || {};
+  const fabricArgs = profile.arguments || {};
+  return {
+    ...base,
+    mainClass: profile.mainClass || base.mainClass,
+    arguments: {
+      jvm: [...(baseArgs.jvm || []), ...(fabricArgs.jvm || [])],
+      game: [...(baseArgs.game || []), ...(fabricArgs.game || [])],
+    },
+    libraries: [...(base.libraries || []), ...profile.libraries],
+  };
+}
+
 function buildLaunch(username) {
-  const version = readJson(VERSION_JSON, null);
-  if (!version) throw new Error('Sürüm dosyası okunamadı.');
+  const version = clientVersion();
   if (!fs.existsSync(VERSION_JAR)) throw new Error('Minecraft istemci jar bulunamadı.');
-  const expected = version.assetIndex ? version.assetIndex.id : '1.16';
+  const expected = version.assetIndex ? version.assetIndex.id : '1.21';
 
   const classpathParts = [];
   for (const lib of version.libraries || []) {
     if (!libraryAllowed(lib)) continue;
     const artifact = lib.downloads && lib.downloads.artifact;
-    if (!artifact || !artifact.path) continue;
-    const file = path.join(LIB_DIR, artifact.path);
+    if (artifact && artifact.path) {
+      const file = path.join(LIB_DIR, artifact.path);
+      if (fs.existsSync(file)) classpathParts.push(file);
+      continue;
+    }
+    const rel = mavenPath(lib.name);
+    if (!rel) continue;
+    const file = path.join(LIB_DIR, rel);
     if (fs.existsSync(file)) classpathParts.push(file);
   }
   classpathParts.push(VERSION_JAR);
@@ -705,6 +1039,7 @@ function buildLaunch(username) {
 
   const gameArgs = collectGameArgs(version, map);
   gameArgs.push('--server', '127.0.0.1', '--port', String(MC_PORT));
+  gameArgs.push('--quickPlayMultiplayer', '127.0.0.1:' + MC_PORT);
   gameArgs.push('--width', '1280', '--height', '720');
 
   return { mainClass: version.mainClass, jvmArgs, gameArgs };
@@ -1022,6 +1357,52 @@ const server = http.createServer(async (req, res) => {
 
       if (req.method === 'GET' && pathname === '/api/me') {
         return sendJson(res, 200, { user: { username: user.username } });
+      }
+
+      if (req.method === 'GET' && pathname === '/api/mods') {
+        return sendJson(res, 200, modsSnapshot());
+      }
+
+      if (req.method === 'POST' && pathname === '/api/mods/fabric/install') {
+        try {
+          await installFabric();
+        } catch (err) {
+          return sendJson(res, 502, { error: err.message || 'Fabric kurulamadı.' });
+        }
+        return sendJson(res, 200, modsSnapshot());
+      }
+
+      if (req.method === 'POST' && pathname === '/api/mods/fabric') {
+        const body = await readBody(req);
+        const enabled = Boolean(body.enabled);
+        if (enabled && !fabricInstalled()) {
+          return sendJson(res, 409, { error: 'Fabric henüz kurulu değil.' });
+        }
+        const settings = loadClientSettings();
+        settings.fabric = enabled;
+        saveClientSettings(settings);
+        return sendJson(res, 200, modsSnapshot());
+      }
+
+      if (req.method === 'POST' && pathname === '/api/mods/install') {
+        const body = await readBody(req);
+        try {
+          const requested = body.type === 'mod' || body.type === 'shader' ? body.type : 'auto';
+          const result = await installClientFile(body.url, requested);
+          return sendJson(res, 200, { ok: true, ...result, state: modsSnapshot() });
+        } catch (err) {
+          return sendJson(res, 400, { error: err.message || 'Dosya eklenemedi.' });
+        }
+      }
+
+      if (req.method === 'POST' && pathname === '/api/mods/delete') {
+        const body = await readBody(req);
+        try {
+          deleteClientFile(String(body.type || ''), String(body.name || ''));
+          return sendJson(res, 200, { ok: true, state: modsSnapshot() });
+        } catch (err) {
+          return sendJson(res, 404, { error: err.message || 'Dosya silinemedi.' });
+        }
       }
 
       if (req.method === 'POST' && pathname === '/api/play') {

@@ -24,13 +24,13 @@
         Minecraft açılır ve doğrudan sunucuya bağlanır.
       </p>
       <ul class="brand-facts">
-        <li><span class="dot"></span> Paper 1.16.5 sunucu</li>
+        <li><span class="dot"></span> Paper 1.21.1 sunucu</li>
         <li><span class="dot"></span> Otomatik sunucuya katılım</li>
         <li><span class="dot"></span> Bu bilgisayarda 7/24 çalışır</li>
       </ul>
       <div class="brand-strip">
         <div><b>20</b><small>oyuncu kapasitesi</small></div>
-        <div><b>1.16.5</b><small>istemci sürümü</small></div>
+        <div><b>1.21.1</b><small>istemci sürümü</small></div>
         <div><b>SMP</b><small>+ PvP dünyası</small></div>
       </div>
     </div>
@@ -94,6 +94,7 @@
       </div>
       <nav class="topnav">
         <a href="#server" class="topnav-link">Sunucu</a>
+        <a href="#mods" class="topnav-link">Modlar</a>
         <a href="#howto" class="topnav-link">Nasıl Oynanır</a>
       </nav>
       <div class="user-chip">
@@ -110,7 +111,7 @@
         <div class="hero-glow" aria-hidden="true"></div>
         <div class="hero-top">
           <span class="status-badge offline" id="serverBadge"><span class="pulse"></span><span id="serverBadgeText">SUNUCU KAPALI</span></span>
-          <span class="chip" id="versionChip">PAPER 1.16.5</span>
+          <span class="chip" id="versionChip">PAPER 1.21.1</span>
         </div>
         <h2 class="hero-title">BlokArena <span>SMP &amp; PvP</span></h2>
         <p class="hero-sub">Minecraft senin bilgisayarında açılır ve doğrudan sunucuya bağlanır. Mod kurmana, sürüm seçmene gerek yok. Hub'da <b>BOX PVP</b> ve <b>GUNS PVP</b> butonlarıyla herkese açık arenaya ışınlanabilirsin.</p>
@@ -149,7 +150,7 @@
           </div>
           <div class="stat">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h6v6H9z"/></svg>
-            <div><b id="statVersion">1.16.5</b><small>sürüm</small></div>
+            <div><b id="statVersion">1.21.1</b><small>sürüm</small></div>
           </div>
         </div>
       </section>
@@ -163,7 +164,7 @@
         </div>
         <dl class="status-list">
           <div><dt>Durum</dt><dd id="rowStatus" class="value-off">Kapalı</dd></div>
-          <div><dt>Sürüm</dt><dd id="rowVersion">Paper 1.16.5</dd></div>
+          <div><dt>Sürüm</dt><dd id="rowVersion">Paper 1.21.1</dd></div>
           <div><dt>Oyuncular</dt><dd id="rowPlayers">0 / 20</dd></div>
           <div><dt>Gecikme</dt><dd id="rowPing">--</dd></div>
           <div><dt>Yerel ağ</dt><dd id="rowLan">-</dd></div>
@@ -171,6 +172,56 @@
         <div class="motd" id="serverMotd">Sunucu açıldığında burada sunucu mesajı görünür.</div>
         <p class="status-note">Sunucu bu bilgisayar açıkken çalışır. Arkadaşların aynı ağdan yerel IP ile katılabilir.</p>
       </aside>
+
+      <section class="mods-card" id="mods">
+        <div class="card-head">
+          <h3><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4h4v3a2 2 0 0 0 4 0h2v4h-3a2 2 0 0 0 0 4h3v4h-4v-3a2 2 0 0 0-4 0v3h-4v-3a2 2 0 0 0-4 0v3H4v-4h3a2 2 0 0 0 0-4H4V6h3a2 2 0 0 0 4 0z"/></svg> Modlar &amp; Shaderlar</h3>
+          <span class="mod-state" id="fabricState">Fabric kurulu değil</span>
+        </div>
+
+        <div class="fabric-row">
+          <div class="fabric-info">
+            <b>Shader desteği: Fabric + Iris</b>
+            <p>Shader paketleri ve istemci modları için Fabric Loader, Iris, Sodium ve Fabric API kurulur. Sunucu Paper olarak kalır.</p>
+          </div>
+          <div class="fabric-actions">
+            <label class="switch" title="Modlu istemciyle başlat">
+              <input type="checkbox" id="fabricToggle" disabled>
+              <span class="switch-track" aria-hidden="true"></span>
+              <span class="switch-label">Modlu istemci</span>
+            </label>
+            <button class="btn-ghost" id="fabricInstall" type="button">Shader desteğini kur</button>
+          </div>
+        </div>
+
+        <form class="mod-form" id="modForm">
+          <label class="mod-url">
+            <span>GitHub deposu, sürüm veya direkt .jar/.zip bağlantısı</span>
+            <input id="modUrl" type="url" required spellcheck="false" placeholder="https://github.com/kullanici/proje/releases/latest">
+          </label>
+          <label class="mod-type">
+            <span>Tür</span>
+            <select id="modType">
+              <option value="auto">Otomatik</option>
+              <option value="mod">Mod (.jar)</option>
+              <option value="shader">Shader (.zip)</option>
+            </select>
+          </label>
+          <button class="btn-primary" id="modAdd" type="submit">Ekle</button>
+        </form>
+        <p class="mod-hint" id="modHint">GitHub bağlantısı verirsen son sürümdeki uygun dosya otomatik seçilir. Shaderlar için “Modlu istemci” açık olmalı.</p>
+
+        <div class="mod-columns">
+          <div class="mod-group">
+            <h4>Modlar <span class="mod-count" id="modCount">0</span></h4>
+            <ul class="mod-list" id="modList"><li class="mod-empty">Henüz mod yok.</li></ul>
+          </div>
+          <div class="mod-group">
+            <h4>Shader paketleri <span class="mod-count" id="shaderCount">0</span></h4>
+            <ul class="mod-list" id="shaderList"><li class="mod-empty">Henüz shader paketi yok.</li></ul>
+          </div>
+        </div>
+      </section>
 
       <section class="console-card">
         <div class="card-head">
@@ -204,7 +255,7 @@
     </main>
 
     <footer class="app-foot">
-      <span>BlokArena MC · Minecraft 1.16.5 · Paper</span>
+      <span>BlokArena MC · Minecraft 1.21.1 · Paper</span>
       <span>Sunucu bu bilgisayarda çalışır; Minecraft EULA geçerlidir.</span>
     </footer>
   </section>

@@ -12,6 +12,7 @@ const state = {
   consoleTimer: null,
   lastPlayError: '',
   launchedToastAt: 0,
+  mods: null,
   serverAddress: '127.0.0.1:25565',
 };
 
@@ -125,6 +126,7 @@ function enterApp(user) {
 
   refreshStatus();
   refreshConsole();
+  refreshMods();
 
   clearInterval(state.statusTimer);
   clearInterval(state.consoleTimer);
@@ -151,7 +153,7 @@ function renderStatus(data) {
   const online = Boolean(server.online);
   setBadge(online);
 
-  const version = server.version || '1.16.5';
+  const version = server.version || '1.21.1';
   el('versionChip').textContent = 'PAPER ' + version;
   el('statVersion').textContent = version;
   el('rowVersion').textContent = 'Paper ' + version;
@@ -301,6 +303,143 @@ async function refreshConsole() {
   }
 }
 
+function formatSize(bytes) {
+  const value = Number(bytes) || 0;
+  if (value >= 1024 * 1024) return (value / (1024 * 1024)).toFixed(1) + ' MB';
+  if (value >= 1024) return Math.round(value / 1024) + ' KB';
+  return value + ' B';
+}
+
+function fillModList(listId, countId, files, emptyText, type) {
+  const list = el(listId);
+  el(countId).textContent = files.length;
+  list.innerHTML = '';
+  if (!files.length) {
+    const empty = document.createElement('li');
+    empty.className = 'mod-empty';
+    empty.textContent = emptyText;
+    list.appendChild(empty);
+    return;
+  }
+  for (const file of files) {
+    const item = document.createElement('li');
+    item.className = 'mod-item';
+    const name = document.createElement('span');
+    name.className = 'mod-name';
+    name.textContent = file.name;
+    name.title = file.name;
+    const size = document.createElement('span');
+    size.className = 'mod-size';
+    size.textContent = formatSize(file.size);
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'mod-del';
+    remove.dataset.name = file.name;
+    remove.dataset.type = type;
+    remove.textContent = 'Sil';
+    item.append(name, size, remove);
+    list.appendChild(item);
+  }
+}
+
+function renderMods(data) {
+  if (!data || !data.fabric) return;
+  state.mods = data;
+  const fabric = data.fabric;
+  const badge = el('fabricState');
+  badge.textContent = fabric.installed
+    ? fabric.enabled
+      ? 'Fabric aktif'
+      : 'Fabric kurulu · kapalı'
+    : 'Fabric kurulu değil';
+  badge.classList.toggle('on', Boolean(fabric.installed && fabric.enabled));
+  el('fabricInstall').textContent = fabric.installed ? 'Yeniden kur' : 'Shader desteğini kur';
+  const toggle = el('fabricToggle');
+  toggle.disabled = !fabric.installed;
+  toggle.checked = Boolean(fabric.enabled);
+  fillModList('modList', 'modCount', data.mods || [], 'Henüz mod yok.', 'mod');
+  fillModList('shaderList', 'shaderCount', data.shaders || [], 'Henüz shader paketi yok.', 'shader');
+  el('modHint').textContent = fabric.installed
+    ? 'Shaderlar için oyun içinde Video Ayarları → Shaderlar bölümünden paketi seç. Sunucu Paper; modlar istemci tarafında kalır.'
+    : 'GitHub bağlantısı verirsen son sürümdeki uygun dosya otomatik seçilir. Shaderlar için önce Fabric + Iris kur.';
+}
+
+async function refreshMods() {
+  if (!state.user) return;
+  try {
+    const data = await api('/api/mods');
+    renderMods(data);
+  } catch {
+    // bir sonraki yenilemede tekrar denenir
+  }
+}
+
+async function installFabric() {
+  const button = el('fabricInstall');
+  const label = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Kuruluyor…';
+  try {
+    const data = await api('/api/mods/fabric/install', { method: 'POST' });
+    renderMods(data);
+    toast('Fabric + Iris + Sodium kuruldu. Modlu istemci açık.');
+  } catch (err) {
+    button.textContent = label;
+    toast(err.message, true);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function toggleFabric(enabled) {
+  try {
+    const data = await api('/api/mods/fabric', { method: 'POST', body: JSON.stringify({ enabled }) });
+    renderMods(data);
+    toast(enabled ? 'Modlu istemci (Fabric) açık.' : 'Vanilla istemci kullanılacak.');
+  } catch (err) {
+    el('fabricToggle').checked = !enabled;
+    toast(err.message, true);
+  }
+}
+
+async function addMod(event) {
+  event.preventDefault();
+  const input = el('modUrl');
+  const url = input.value.trim();
+  if (!url) return;
+  const button = el('modAdd');
+  const label = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Ekleniyor…';
+  try {
+    const data = await api('/api/mods/install', {
+      method: 'POST',
+      body: JSON.stringify({ url, type: el('modType').value }),
+    });
+    if (data.state) renderMods(data.state);
+    input.value = '';
+    toast((data.type === 'shader' ? 'Shader eklendi: ' : 'Mod eklendi: ') + data.name);
+  } catch (err) {
+    toast(err.message, true);
+  } finally {
+    button.disabled = false;
+    button.textContent = label;
+  }
+}
+
+async function removeMod(type, name) {
+  try {
+    const data = await api('/api/mods/delete', {
+      method: 'POST',
+      body: JSON.stringify({ type, name }),
+    });
+    if (data.state) renderMods(data.state);
+    toast('Silindi: ' + name);
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
 function pollPlay() {
   clearInterval(state.playTimer);
   state.playTimer = setInterval(async () => {
@@ -376,6 +515,17 @@ async function init() {
     toast('Sunucu durumu yenilendi.');
   });
   el('logoutBtn').addEventListener('click', () => logout(false));
+  el('modForm').addEventListener('submit', addMod);
+  el('fabricInstall').addEventListener('click', installFabric);
+  el('fabricToggle').addEventListener('change', (event) => toggleFabric(event.target.checked));
+  el('modList').addEventListener('click', (event) => {
+    const button = event.target.closest('.mod-del');
+    if (button) removeMod('mod', button.dataset.name);
+  });
+  el('shaderList').addEventListener('click', (event) => {
+    const button = event.target.closest('.mod-del');
+    if (button) removeMod('shader', button.dataset.name);
+  });
 
   let bootstrap = null;
   try {

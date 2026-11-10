@@ -4,6 +4,7 @@ node_modules/
 launcher/data/admin.key
 launcher/data/secret.txt
 launcher/data/users.json
+launcher/data/client-settings.json
 
 # çalışma zamanı / üretilen dosyalar
 launcher/edge-profile/
@@ -13,6 +14,14 @@ server.log
 
 mc/runtime/
 mc/client/
+mc/backups/
 mc/server/cache/
+mc/server/libraries/
 mc/server/logs/
+mc/server/config/
+mc/server/versions/
+mc/server/plugins/.paper-remapped/
+mc/server/plugins/spark/
+mc/server/paper.yml-README.txt
 session.lock
+.tmp-upgrade/
