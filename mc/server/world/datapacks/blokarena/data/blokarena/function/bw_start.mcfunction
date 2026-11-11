@@ -13,7 +13,15 @@ tag @a remove bw_blue_nobed
 tag @a remove bw_eliminated
 scoreboard players set #red bw_joined 0
 scoreboard players set #blue bw_joined 0
+scoreboard players set #red_alive bw_alive 0
+scoreboard players set #blue_alive bw_alive 0
 function blokarena:bw_beds_reset
 scoreboard players set #match bw_state 1
+schedule clear blokarena:bw_hud
+schedule clear blokarena:bw_refill
+schedule function blokarena:bw_hud 1s
+schedule function blokarena:bw_refill 30s
+title @a times 10 50 20
 title @a title {"text":"BEDWARS BASLADI","color":"gold","bold":true}
 title @a subtitle {"text":"Yatagini koru, rakibinkini kir","color":"gray"}
+execute as @a at @s run playsound minecraft:entity.ender_dragon.growl player @s ~ ~ ~ 1 1
