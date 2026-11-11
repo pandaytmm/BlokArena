@@ -1,7 +1,7 @@
 clear @s
 effect clear @s
 give @s minecraft:wooden_sword 1
-give @s minecraft:leather_helmet 1
+give @s minecraft:leather_helmet[minecraft:dyed_color={rgb:3949738}] 1
 give @s minecraft:leather_chestplate[minecraft:dyed_color={rgb:3949738}] 1
 give @s minecraft:leather_leggings[minecraft:dyed_color={rgb:3949738}] 1
 give @s minecraft:leather_boots[minecraft:dyed_color={rgb:3949738}] 1
