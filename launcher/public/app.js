@@ -13,6 +13,7 @@ const state = {
   lastPlayError: '',
   launchedToastAt: 0,
   mods: null,
+  modUploadBusy: false,
   serverAddress: '127.0.0.1:25565',
 };
 
@@ -359,9 +360,12 @@ function renderMods(data) {
   toggle.checked = Boolean(fabric.enabled);
   fillModList('modList', 'modCount', data.mods || [], 'Henüz mod yok.', 'mod');
   fillModList('shaderList', 'shaderCount', data.shaders || [], 'Henüz shader paketi yok.', 'shader');
+  const paths = data.paths || {};
+  el('modPath').textContent = 'Mod klasörü: ' + (paths.mods || '…');
+  el('modPath').title = 'Modlar: ' + (paths.mods || '-') + '\nShaderlar: ' + (paths.shaders || '-');
   el('modHint').textContent = fabric.installed
-    ? 'Shaderlar için oyun içinde Video Ayarları → Shaderlar bölümünden paketi seç. Sunucu Paper; modlar istemci tarafında kalır.'
-    : 'GitHub bağlantısı verirsen son sürümdeki uygun dosya otomatik seçilir. Shaderlar için önce Fabric + Iris kur.';
+    ? 'Dosyalar doğrudan mod/shader klasörüne kopyalanır. Klasöre elle attığın dosyalar için “Yenile”ye bas. Shaderlar oyun içinde Video Ayarları → Shaderlar bölümünden seçilir.'
+    : 'Dosyalar doğrudan mod/shader klasörüne kopyalanır. Shader kullanmak için önce “Shader desteğini kur” ile Fabric + Iris kur.';
 }
 
 async function refreshMods() {
@@ -402,29 +406,95 @@ async function toggleFabric(enabled) {
   }
 }
 
-async function addMod(event) {
-  event.preventDefault();
-  const input = el('modUrl');
-  const url = input.value.trim();
-  if (!url) return;
-  const button = el('modAdd');
-  const label = button.textContent;
-  button.disabled = true;
-  button.textContent = 'Ekleniyor…';
+async function uploadModFile(file) {
+  const res = await fetch('/api/mods/upload?name=' + encodeURIComponent(file.name), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/octet-stream',
+      ...(state.token ? { Authorization: 'Bearer ' + state.token } : {}),
+    },
+    body: file,
+  });
+  let data = null;
   try {
-    const data = await api('/api/mods/install', {
-      method: 'POST',
-      body: JSON.stringify({ url, type: el('modType').value }),
-    });
-    if (data.state) renderMods(data.state);
-    input.value = '';
-    toast((data.type === 'shader' ? 'Shader eklendi: ' : 'Mod eklendi: ') + data.name);
+    data = await res.json();
+  } catch {
+    data = null;
+  }
+  if (res.status === 401) {
+    logout(true);
+    throw new Error('Oturum sona erdi.');
+  }
+  if (!res.ok) throw new Error((data && data.error) || 'Dosya eklenemedi.');
+  return data;
+}
+
+async function uploadModFiles(fileList) {
+  const files = Array.from(fileList || []).filter((file) => /\.(jar|zip)$/i.test(file.name));
+  if (!files.length) {
+    toast('Sadece .jar (mod) veya .zip (shader) dosyası ekleyebilirsin.', true);
+    return;
+  }
+  if (state.modUploadBusy) return;
+  state.modUploadBusy = true;
+  const drop = el('modDrop');
+  drop.classList.add('is-busy');
+  let added = 0;
+  const errors = [];
+  for (const file of files) {
+    try {
+      const data = await uploadModFile(file);
+      if (data.state) renderMods(data.state);
+      added += 1;
+    } catch (err) {
+      errors.push(file.name + ': ' + err.message);
+    }
+  }
+  state.modUploadBusy = false;
+  drop.classList.remove('is-busy');
+  el('modFiles').value = '';
+  if (added) toast(added + ' dosya eklendi.');
+  if (errors.length) toast(errors[0], true);
+}
+
+async function openModFolder(type) {
+  try {
+    const data = await api('/api/mods/folder', { method: 'POST', body: JSON.stringify({ type }) });
+    toast('Klasör açıldı: ' + data.path);
   } catch (err) {
     toast(err.message, true);
-  } finally {
-    button.disabled = false;
-    button.textContent = label;
   }
+}
+
+function bindModDrop() {
+  const drop = el('modDrop');
+  const input = el('modFiles');
+  drop.addEventListener('click', () => input.click());
+  drop.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      input.click();
+    }
+  });
+  input.addEventListener('change', () => uploadModFiles(input.files));
+  ['dragenter', 'dragover'].forEach((name) =>
+    drop.addEventListener(name, (event) => {
+      event.preventDefault();
+      drop.classList.add('is-drag');
+    })
+  );
+  ['dragleave', 'drop'].forEach((name) =>
+    drop.addEventListener(name, (event) => {
+      event.preventDefault();
+      drop.classList.remove('is-drag');
+    })
+  );
+  drop.addEventListener('drop', (event) => {
+    if (event.dataTransfer) uploadModFiles(event.dataTransfer.files);
+  });
+  el('refreshMods').addEventListener('click', refreshMods);
+  el('openModFolder').addEventListener('click', () => openModFolder('mod'));
+  el('openShaderFolder').addEventListener('click', () => openModFolder('shader'));
 }
 
 async function removeMod(type, name) {
@@ -515,7 +585,8 @@ async function init() {
     toast('Sunucu durumu yenilendi.');
   });
   el('logoutBtn').addEventListener('click', () => logout(false));
-  el('modForm').addEventListener('submit', addMod);
+  bindModDrop();
+  window.addEventListener('focus', refreshMods);
   el('fabricInstall').addEventListener('click', installFabric);
   el('fabricToggle').addEventListener('change', (event) => toggleFabric(event.target.checked));
   el('modList').addEventListener('click', (event) => {

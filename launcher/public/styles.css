@@ -1280,52 +1280,79 @@ svg {
   font-weight: 700;
 }
 
-.mod-form {
+.mod-drop {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 170px auto;
-  align-items: end;
-  gap: 12px;
+  justify-items: center;
+  gap: 4px;
   margin-top: 16px;
-}
-
-.mod-form label {
-  display: grid;
-  gap: 7px;
+  padding: 22px 18px;
+  border: 1px dashed #2b4250;
+  border-radius: 12px;
+  background: rgba(8, 14, 19, 0.55);
   color: var(--muted);
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
-.mod-form input,
-.mod-form select {
-  width: 100%;
-  padding: 12px 13px;
-  border: 1px solid #213140;
-  border-radius: 9px;
-  outline: none;
-  background: #080e13;
-  color: var(--text);
+.mod-drop svg {
+  width: 26px;
+  height: 26px;
+  margin-bottom: 4px;
+  fill: none;
+  stroke: #4ade80;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mod-drop b {
+  color: #d7e8ef;
   font-size: 13px;
-  letter-spacing: normal;
-  text-transform: none;
 }
 
-.mod-form input:focus,
-.mod-form select:focus {
-  border-color: rgba(74, 222, 128, 0.65);
-  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.12);
+.mod-drop span {
+  max-width: 520px;
+  color: var(--muted-2);
+  font-size: 11px;
+  line-height: 1.5;
 }
 
-.mod-form input::placeholder {
-  color: #53656f;
+.mod-drop:hover,
+.mod-drop:focus-visible,
+.mod-drop.is-drag {
+  border-color: rgba(74, 222, 128, 0.7);
+  background: rgba(20, 45, 32, 0.45);
+  outline: none;
 }
 
-.mod-form .btn-primary {
-  width: auto;
-  padding: 12px 24px;
-  box-shadow: 0 4px 0 #15703d;
+.mod-drop.is-busy {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.mod-folder-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.mod-path {
+  flex: 1;
+  min-width: 220px;
+  overflow: hidden;
+  color: var(--muted-2);
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mod-folder-row .btn-ghost {
+  padding: 7px 12px;
+  font-size: 11px;
 }
 
 .mod-hint {
@@ -1427,22 +1454,17 @@ svg {
     align-items: flex-start;
   }
 
-  .mod-form {
-    grid-template-columns: minmax(0, 1fr) 140px;
-  }
-
-  .mod-form .btn-primary {
-    grid-column: 1 / -1;
-    width: 100%;
+  .mod-folder-row .btn-ghost {
+    flex: 0 0 auto;
   }
 }
 
 @media (max-width: 620px) {
-  .mod-form {
+  .mod-columns {
     grid-template-columns: 1fr;
   }
 
-  .mod-columns {
-    grid-template-columns: 1fr;
+  .mod-path {
+    flex-basis: 100%;
   }
 }

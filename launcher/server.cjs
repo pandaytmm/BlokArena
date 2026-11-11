@@ -762,6 +762,61 @@ async function installClientFile(rawUrl, requested) {
   return { type, name, size: fs.statSync(dest).size };
 }
 
+const UPLOAD_LIMIT = 300 * 1024 * 1024;
+
+function readRawBody(req, limit = UPLOAD_LIMIT) {
+  return new Promise((resolve, reject) => {
+    const declared = Number(req.headers['content-length'] || 0);
+    if (declared && declared > limit) {
+      req.destroy();
+      reject(new Error('Dosya çok büyük (en fazla 300 MB).'));
+      return;
+    }
+    let size = 0;
+    const chunks = [];
+    req.on('data', (chunk) => {
+      size += chunk.length;
+      if (size > limit) {
+        req.destroy();
+        reject(new Error('Dosya çok büyük (en fazla 300 MB).'));
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
+async function saveUploadedFile(req, typeHint, rawName) {
+  const requested = typeHint === 'mod' || typeHint === 'shader' ? typeHint : 'auto';
+  const type = detectFileType(rawName, requested);
+  const name = safeBaseName(rawName, type);
+  const body = await readRawBody(req);
+  if (!body.length) throw new Error('Dosya boş görünüyor.');
+  if (body.length < 4 || body[0] !== 0x50 || body[1] !== 0x4b) {
+    throw new Error('Dosya geçerli bir .jar/.zip arşivi değil.');
+  }
+  const dir = type === 'mod' ? MODS_DIR : SHADERS_DIR;
+  ensureDir(dir);
+  const dest = path.join(dir, name);
+  const tmp = dest + '.upload';
+  await fsp.writeFile(tmp, body);
+  await fsp.rename(tmp, dest);
+  return { type, name, size: body.length };
+}
+
+function openClientFolder(type) {
+  if (type !== 'mod' && type !== 'shader') throw new Error('Geçersiz tür.');
+  const dir = type === 'mod' ? MODS_DIR : SHADERS_DIR;
+  ensureDir(dir);
+  const opener = process.platform === 'win32' ? 'explorer.exe' : process.platform === 'darwin' ? 'open' : 'xdg-open';
+  const child = spawn(opener, [dir], { detached: true, stdio: 'ignore' });
+  child.on('error', () => {});
+  child.unref();
+  return dir;
+}
+
 function deleteClientFile(type, name) {
   if (type !== 'mod' && type !== 'shader') throw new Error('Geçersiz tür.');
   const raw = String(name || '');
@@ -785,6 +840,7 @@ function modsSnapshot() {
     },
     mods: listClientFiles(MODS_DIR, '.jar'),
     shaders: listClientFiles(SHADERS_DIR, '.zip'),
+    paths: { mods: MODS_DIR, shaders: SHADERS_DIR },
   };
 }
 
@@ -1187,6 +1243,17 @@ function readBody(req, limit = 20000) {
   });
 }
 
+function adminAuthorized(req) {
+  const key = String(req.headers['x-admin-key'] || '');
+  let expected = '';
+  try {
+    expected = fs.readFileSync(path.join(DATA_DIR, 'admin.key'), 'utf8').trim();
+  } catch {
+    expected = '';
+  }
+  return Boolean(expected) && key === expected;
+}
+
 function authUser(req) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : '';
@@ -1336,20 +1403,23 @@ const server = http.createServer(async (req, res) => {
       }
 
       if (req.method === 'POST' && pathname === '/api/admin/command') {
-        const key = String(req.headers['x-admin-key'] || '');
-        let expected = '';
-        try {
-          expected = fs.readFileSync(path.join(DATA_DIR, 'admin.key'), 'utf8').trim();
-        } catch {
-          expected = '';
-        }
-        if (!expected || key !== expected) return sendJson(res, 403, { error: 'Yetkisiz.' });
+        if (!adminAuthorized(req)) return sendJson(res, 403, { error: 'Yetkisiz.' });
         if (!serverState.child) return sendJson(res, 409, { error: 'Sunucu bu backend tarafından yönetilmiyor.' });
         const body = await readBody(req);
         const command = String(body.command || '').replace(/[\r\n]/g, '').trim();
         if (!command) return sendJson(res, 400, { error: 'Komut gerekli.' });
         serverState.child.stdin.write(command + '\n');
         return sendJson(res, 200, { ok: true });
+      }
+
+      if (req.method === 'POST' && pathname === '/api/admin/server/start') {
+        if (!adminAuthorized(req)) return sendJson(res, 403, { error: 'Yetkisiz.' });
+        try {
+          const started = await startServer();
+          return sendJson(res, 200, { ok: true, started });
+        } catch (err) {
+          return sendJson(res, 500, { error: err.message || 'Sunucu başlatılamadı.' });
+        }
       }
 
       const user = authUser(req);
@@ -1382,6 +1452,29 @@ const server = http.createServer(async (req, res) => {
         settings.fabric = enabled;
         saveClientSettings(settings);
         return sendJson(res, 200, modsSnapshot());
+      }
+
+      if (req.method === 'POST' && pathname === '/api/mods/upload') {
+        try {
+          const result = await saveUploadedFile(
+            req,
+            String(url.searchParams.get('type') || 'auto'),
+            String(url.searchParams.get('name') || '')
+          );
+          return sendJson(res, 200, { ok: true, ...result, state: modsSnapshot() });
+        } catch (err) {
+          return sendJson(res, 400, { error: err.message || 'Dosya eklenemedi.' });
+        }
+      }
+
+      if (req.method === 'POST' && pathname === '/api/mods/folder') {
+        const body = await readBody(req);
+        try {
+          const dir = openClientFolder(String(body.type || ''));
+          return sendJson(res, 200, { ok: true, path: dir });
+        } catch (err) {
+          return sendJson(res, 400, { error: err.message || 'Klasör açılamadı.' });
+        }
       }
 
       if (req.method === 'POST' && pathname === '/api/mods/install') {

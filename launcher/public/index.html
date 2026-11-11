@@ -194,22 +194,19 @@
           </div>
         </div>
 
-        <form class="mod-form" id="modForm">
-          <label class="mod-url">
-            <span>GitHub deposu, sürüm veya direkt .jar/.zip bağlantısı</span>
-            <input id="modUrl" type="url" required spellcheck="false" placeholder="https://github.com/kullanici/proje/releases/latest">
-          </label>
-          <label class="mod-type">
-            <span>Tür</span>
-            <select id="modType">
-              <option value="auto">Otomatik</option>
-              <option value="mod">Mod (.jar)</option>
-              <option value="shader">Shader (.zip)</option>
-            </select>
-          </label>
-          <button class="btn-primary" id="modAdd" type="submit">Ekle</button>
-        </form>
-        <p class="mod-hint" id="modHint">GitHub bağlantısı verirsen son sürümdeki uygun dosya otomatik seçilir. Shaderlar için “Modlu istemci” açık olmalı.</p>
+        <div class="mod-drop" id="modDrop" role="button" tabindex="0" aria-label="Mod dosyası seç">
+          <input type="file" id="modFiles" accept=".jar,.zip" multiple hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5l5 5"/><path d="M4 17v3h16v-3"/></svg>
+          <b>Mod dosyalarını buraya sürükle</b>
+          <span>veya tıkla, bilgisayarından seç. İstediğin modu doğrudan ekle: .jar → modlar, .zip → shaderlar.</span>
+        </div>
+        <div class="mod-folder-row">
+          <span class="mod-path" id="modPath" title="">Mod klasörü: …</span>
+          <button class="btn-ghost" id="refreshMods" type="button">Yenile</button>
+          <button class="btn-ghost" id="openModFolder" type="button">Mod klasörünü aç</button>
+          <button class="btn-ghost" id="openShaderFolder" type="button">Shader klasörünü aç</button>
+        </div>
+        <p class="mod-hint" id="modHint">Dosyalar doğrudan mod/shader klasörüne kopyalanır; başka bir yere yükleme yapılmaz. Klasöre elle attığın dosyalar için “Yenile”ye bas. Shaderlar için Modlu istemci açık olmalı.</p>
 
         <div class="mod-columns">
           <div class="mod-group">
